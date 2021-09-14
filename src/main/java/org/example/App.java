@@ -27,57 +27,71 @@ public class App
         ElasticManager elasticManager = ElasticManager
                 .authenticate(credential, profile);
         Monitors monitorsClient = elasticManager.monitors();
+   
+        TestListingElasticResources(monitorsClient);
 
-//        TestListingElasticResources(monitorsClient);
-
-//        TestDeletingElasticResource(monitorsClient);
-
-
+        TestDeletingElasticResource(monitorsClient);
 
         MonitorProperties monitorProperties = new MonitorProperties();
           UserInfo userInfo =new UserInfo();
-          userInfo.withEmailAddress("sdktestinguser@mpliftrelastic20210901outlo.onmicrosoft.com");
-          userInfo.withFirstName("varun");
-          userInfo.withLastName("kunchakuri");
-          userInfo.withCompanyName("mic");
-          CompanyInfo companyInfo = new CompanyInfo();
-          companyInfo.withBusiness("nothing");
-          companyInfo.withCountry("nothing");
-          companyInfo.withDomain("nothing");
-          companyInfo.withState("nothing");
-          userInfo.withCompanyInfo(companyInfo);
-
+        userInfo.withFirstName("varun");
+        userInfo.withLastName("kunchakuri");
+        userInfo.withCompanyName("microsoft");
+        CompanyInfo companyInfo = new CompanyInfo();
+        companyInfo.withBusiness("cloud");
+        companyInfo.withCountry("india");
+        companyInfo.withDomain("software");
+        companyInfo.withState("andhrapradesh");
+        userInfo.withCompanyInfo(companyInfo);
+        userInfo.withEmailAddress("sdkdemo@mpliftrelastic20210901outlo.onmicrosoft.com");
          monitorProperties.withUserInfo(userInfo);
-         IdentityProperties identityProperties = new IdentityProperties();
-         identityProperties.withType(ManagedIdentityTypes.fromString("None"));
-        ElasticMonitorResourceInner elasticMonitorResourceInner = new ElasticMonitorResourceInner();
-        elasticMonitorResourceInner.withSku(new ResourceSku().withName("ess-monthly-consumption_Monthly"));
-        elasticMonitorResourceInner.withLocation("westus2");
-        elasticMonitorResourceInner.withProperties(monitorProperties);
-        elasticMonitorResourceInner.withIdentity(identityProperties);
 
-        TestCreatingElasticResource(monitorsClient,monitorProperties);
+        String resourceName = TestCreatingElasticResource(monitorsClient,monitorProperties);
 
+        TagRules tagRulesClient = elasticManager.tagRules();
+
+        TestingUpdateTagRules(tagRulesClient,"vakuncha-test-rg",resourceName);
+
+    }
+
+    private static void TestingUpdateTagRules(TagRules tagRulesClient,String resourceGroup, String resourceName) {
+        System.out.println("Updating Tag Rules for Resource: "+resourceName);
+        MonitoringTagRulesProperties tagRules = new MonitoringTagRulesProperties();
+        tagRules.withLogRules(new LogRules().withSendActivityLogs(true).withSendSubscriptionLogs(true));
+        tagRulesClient.define("default")
+        .withExistingMonitor(resourceGroup, resourceName)
+                .withProperties(tagRules).create();
     }
 
     private static void TestListingElasticResources(Monitors monitorsClient) {
         Iterator<ElasticMonitorResource> elasticIterator = monitorsClient.listByResourceGroup("vakuncha-test-rg").iterator();
 
+        System.out.println("Listing Elastic Resources");
         while (elasticIterator.hasNext()){
             System.out.println("Elastic Resource Name: "+elasticIterator.next().name());
         }
     }
     private static void TestDeletingElasticResource(Monitors monitorsClient) {
-        monitorsClient.delete("vakuncha-test-rg", "afterrotationandrestart", Context.NONE);
+
+        Iterator<ElasticMonitorResource> elasticIterator = monitorsClient.listByResourceGroup("vakuncha-test-rg").iterator();
+
+        if (elasticIterator.hasNext()){
+            String resourceName = elasticIterator.next().name();
+            System.out.println("Deleting Elastic Resource: "+resourceName);
+            monitorsClient.delete("vakuncha-test-rg", resourceName, Context.NONE);
+        }
     }
 
-    private static void TestCreatingElasticResource(Monitors monitorsClient,MonitorProperties monitorProperties) {
+    private static String TestCreatingElasticResource(Monitors monitorsClient,MonitorProperties monitorProperties) {
+      String resourceName =   "sdkmonitorresource-"+System.currentTimeMillis();
+      System.out.println("Creating Elastic Resource: "+resourceName);
       monitorsClient
-                .define("sdkmonitorresource")
+                .define(resourceName)
                 .withRegion("eastus2euap")
                 .withExistingResourceGroup("vakuncha-test-rg")
                 .withProperties(monitorProperties)
                 .withSku(new ResourceSku().withName("ess-monthly-consumption_Monthly"))
                 .create();
+      return resourceName;
     }
 }
